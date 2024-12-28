@@ -1,9 +1,11 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { explanations } from '../data/explanations';
 import { questions } from '../data/questions';
 import { UserDetails } from '../types';
 import { generatePDF } from '../utils/pdf';
 import { UserDetailsDisplay } from './UserDetails';
+import { supabase } from '../utils/supabase';
+import { Rankings } from './Rankings';
 
 interface ResultsProps {
   score: number;
@@ -13,9 +15,29 @@ interface ResultsProps {
 }
 
 export const Results: React.FC<ResultsProps> = ({ score, totalQuestions, onRestart, userDetails }) => {
+  const [showRankings, setShowRankings] = useState(false);
   const percentage = (score / totalQuestions) * 100;
   const resultRef = useRef<HTMLDivElement>(null);
   
+  useEffect(() => {
+    saveResult();
+  }, []);
+
+  const saveResult = async () => {
+    try {
+      const { error } = await supabase.from('rankings').insert({
+        name: userDetails.name,
+        company: userDetails.company,
+        score: score,
+        percentage: percentage
+      });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error saving result:', error);
+    }
+  };
+
   const getRecommendation = () => {
     if (percentage >= 90) {
       return "Tahniah! Anda mempunyai pemahaman yang kukuh tentang undang-undang kerja.";
@@ -31,6 +53,10 @@ export const Results: React.FC<ResultsProps> = ({ score, totalQuestions, onResta
   const handleDownloadPDF = () => {
     generatePDF(resultRef.current);
   };
+
+  if (showRankings) {
+    return <Rankings />;
+  }
 
   return (
     <div ref={resultRef}>
@@ -49,6 +75,27 @@ export const Results: React.FC<ResultsProps> = ({ score, totalQuestions, onResta
           <p className="text-gray-700">{getRecommendation()}</p>
         </div>
 
+        <div className="flex space-x-4 justify-center mb-8">
+          <button
+            onClick={handleDownloadPDF}
+            className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors"
+          >
+            Muat Turun Keputusan
+          </button>
+          <button
+            onClick={() => setShowRankings(true)}
+            className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors"
+          >
+            Lihat Kedudukan
+          </button>
+          <button
+            onClick={onRestart}
+            className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors"
+          >
+            Cuba Lagi
+          </button>
+        </div>
+
         <div className="mb-6 text-left">
           <h3 className="text-xl font-semibold mb-4 text-center">Penjelasan Jawapan:</h3>
           {questions.map((question, index) => (
@@ -60,21 +107,6 @@ export const Results: React.FC<ResultsProps> = ({ score, totalQuestions, onResta
               <p className="text-gray-700">{explanations[question.id as keyof typeof explanations]}</p>
             </div>
           ))}
-        </div>
-
-        <div className="flex space-x-4 justify-center mb-8">
-          <button
-            onClick={handleDownloadPDF}
-            className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors"
-          >
-            Muat Turun Keputusan
-          </button>
-          <button
-            onClick={onRestart}
-            className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors"
-          >
-            Cuba Lagi
-          </button>
         </div>
 
         {/* CTA Section */}
